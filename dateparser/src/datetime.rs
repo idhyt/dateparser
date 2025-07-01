@@ -2,7 +2,7 @@
 use crate::timezone;
 use anyhow::{anyhow, Result};
 use chrono::prelude::*;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// Parse struct has methods implemented parsers for accepted formats.
@@ -41,9 +41,8 @@ where
     }
 
     fn ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{4}-[0-9]{2}").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}-[0-9]{2}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -56,9 +55,8 @@ where
     }
 
     fn hms_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{1,2}:[0-9]{2}").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{1,2}:[0-9]{2}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -66,9 +64,9 @@ where
     }
 
     fn month_mdy_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[a-zA-Z]{3,9}\.?\s+[0-9]{1,2}").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[a-zA-Z]{3,9}\.?\s+[0-9]{1,2}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -79,9 +77,8 @@ where
     }
 
     fn month_dmy_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{1,2}\s+[a-zA-Z]{3,9}").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{1,2}\s+[a-zA-Z]{3,9}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -89,9 +86,8 @@ where
     }
 
     fn slash_mdy_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{1,2}/[0-9]{1,2}").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{1,2}/[0-9]{1,2}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -99,19 +95,18 @@ where
     }
 
     fn hyphen_mdy_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{1,2}-[0-9]{1,2}").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{1,2}-[0-9]{1,2}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
-        self.hyphen_mdy_hms(input).or_else(|| self.hyphen_mdy(input))
+        self.hyphen_mdy_hms(input)
+            .or_else(|| self.hyphen_mdy(input))
     }
 
     fn slash_ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{4}/[0-9]{1,2}").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}/[0-9]{1,2}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -119,9 +114,8 @@ where
     }
 
     fn chinese_ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{4}年[0-9]{2}月").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}年[0-9]{2}月").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -134,9 +128,8 @@ where
     // - 1620021848429
     // - 1620024872717915000
     fn unix_timestamp(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{10,19}$").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{10,19}$").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -183,12 +176,10 @@ where
     // - 2019-11-29 08:15:47.624504-08
     // - 2017-07-19 03:21:51+00:00
     fn postgres_timestamp(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
-                r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?[+-:0-9]{3,6}$",
-            )
-            .unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?[+-:0-9]{3,6}$").unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -210,12 +201,10 @@ where
     // - 2014-04-26 17:24:37.3186369
     // - 2012-08-03 18:31:59.257000000
     fn ymd_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
-                r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?\s*(am|pm|AM|PM)?$",
-            )
-            .unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?\s*(am|pm|AM|PM)?$").unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -241,11 +230,9 @@ where
     // - 2012-08-03 18:31:59.257000000 +0000
     // - 2015-09-30 18:48:56.35272715 UTC
     fn ymd_hms_z(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
-                r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?(?P<tz>\s*[+-:a-zA-Z0-9]{3,6})$",
-            ).unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?(?P<tz>\s*[+-:a-zA-Z0-9]{3,6})$").unwrap()
+        });
 
         if !RE.is_match(input) {
             return None;
@@ -271,9 +258,7 @@ where
     // yyyy-mm-dd
     // - 2021-02-21
     fn ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$").unwrap());
 
         if !RE.is_match(input) {
             return None;
@@ -298,10 +283,10 @@ where
     // - 2021-02-21 UTC
     // - 2020-07-20+08:00 (yyyy-mm-dd-07:00)
     fn ymd_z(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex =
-                Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}(?P<tz>\s*[+-:a-zA-Z0-9]{3,6})$").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}(?P<tz>\s*[+-:a-zA-Z0-9]{3,6})$").unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -334,10 +319,10 @@ where
     // - 4:00pm
     // - 6:00 AM
     fn hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex =
-                Regex::new(r"^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?$").unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?$").unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -359,12 +344,13 @@ where
     // - 6:00 AM PST
     // - 6:00pm UTC
     fn hms_z(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(
                 r"^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?(?P<tz>\s+[+-:a-zA-Z0-9]{3,6})$",
             )
-            .unwrap();
-        }
+            .unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -394,9 +380,9 @@ where
     // yyyy-mon-dd
     // - 2021-Feb-21
     fn month_ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{4}-[a-zA-Z]{3,9}-[0-9]{2}$").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[0-9]{4}-[a-zA-Z]{3,9}-[0-9]{2}$").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -420,12 +406,10 @@ where
     // - May 6 at 9:24 PM
     // - May 27 02:45:27
     fn month_md_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
-                r"^[a-zA-Z]{3}\s+[0-9]{1,2}\s*(at)?\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?$",
-            )
-            .unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"^[a-zA-Z]{3}\s+[0-9]{1,2}\s*(at)?\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?$").unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -445,11 +429,12 @@ where
     // - September 17, 2012 10:09am
     // - September 17, 2012, 10:10:09
     fn month_mdy_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
-                r"^[a-zA-Z]{3,9}\.?\s+[0-9]{1,2},\s+[0-9]{2,4},?\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?$",
-            ).unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(
+            r"^[a-zA-Z]{3,9}\.?\s+[0-9]{1,2},\s+[0-9]{2,4},?\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?$",
+        ).unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -471,11 +456,12 @@ where
     // - May 26, 2021, 12:49 AM PDT
     // - September 17, 2012 at 10:09am PST
     fn month_mdy_hms_z(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
-                r"^[a-zA-Z]{3,9}\s+[0-9]{1,2},?\s+[0-9]{4}\s*,?(at)?\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?(?P<tz>\s+[+-:a-zA-Z0-9]{3,6})$",
-            ).unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(
+            r"^[a-zA-Z]{3,9}\s+[0-9]{1,2},?\s+[0-9]{4}\s*,?(at)?\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?(?P<tz>\s+[+-:a-zA-Z0-9]{3,6})$",
+         ).unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -510,10 +496,9 @@ where
     // - oct. 7, 70
     // - October 7, 1970
     fn month_mdy(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex =
-                Regex::new(r"^[a-zA-Z]{3,9}\.?\s+[0-9]{1,2},\s+[0-9]{2,4}$").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[a-zA-Z]{3,9}\.?\s+[0-9]{1,2},\s+[0-9]{2,4}$").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -539,11 +524,12 @@ where
     // - 12 Feb 2006 19:17
     // - 14 May 2019 19:11:40.164
     fn month_dmy_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
-                r"^[0-9]{1,2}\s+[a-zA-Z]{3,9}\s+[0-9]{2,4},?\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?$",
-            ).unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(
+            r"^[0-9]{1,2}\s+[a-zA-Z]{3,9}\s+[0-9]{2,4},?\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?$",
+        ).unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -566,10 +552,9 @@ where
     // - 03 February 2013
     // - 1 July 2013
     fn month_dmy(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex =
-                Regex::new(r"^[0-9]{1,2}\s+[a-zA-Z]{3,9}\s+[0-9]{2,4}$").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[0-9]{1,2}\s+[a-zA-Z]{3,9}\s+[0-9]{2,4}$").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -603,12 +588,13 @@ where
     // - 03/19/2012 10:11:59
     // - 03/19/2012 10:11:59.3186369
     fn slash_mdy_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(
                 r"^[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?\s*(am|pm|AM|PM)?$"
             )
-            .unwrap();
-        }
+            .unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -635,9 +621,9 @@ where
     // - 08/21/71
     // - 8/1/71
     fn slash_mdy(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}$").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}$").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -665,12 +651,13 @@ where
     // - 2012/03/19 10:11:59
     // - 2012/03/19 10:11:59.3186369
     fn slash_ymd_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(
                 r"^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?\s*(am|pm|AM|PM)?$"
             )
-            .unwrap();
-        }
+            .unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -690,9 +677,9 @@ where
     // - 2014/3/31
     // - 2014/03/31
     fn slash_ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}$").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}$").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -717,9 +704,9 @@ where
     // - 08-21-71
     // - 8-1-71
     fn hyphen_mdy(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4}$").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4}$").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -753,12 +740,13 @@ where
     // - 03-19-2012 10:11:59
     // - 03-19-2012 10:11:59.3186369
     fn hyphen_mdy_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(
                 r"^[0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4}\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?\s*(am|pm|AM|PM)?$"
             )
-            .unwrap();
-        }
+            .unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -787,9 +775,9 @@ where
     // - 2014.03.30
     // - 2014.03
     fn dot_mdy_or_ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"[0-9]{1,4}.[0-9]{1,4}[0-9]{1,4}").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"[0-9]{1,4}.[0-9]{1,4}[0-9]{1,4}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -816,9 +804,9 @@ where
     // yymmdd hh:mm:ss mysql log
     // - 171113 14:14:20
     fn mysql_log_timestamp(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"[0-9]{6}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"[0-9]{6}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -833,11 +821,10 @@ where
     // chinese yyyy mm dd hh mm ss
     // - 2014年04月08日11时25分18秒
     fn chinese_ymd_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex =
-                Regex::new(r"^[0-9]{4}年[0-9]{2}月[0-9]{2}日[0-9]{2}时[0-9]{2}分[0-9]{2}秒$")
-                    .unwrap();
-        }
+        static RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"^[0-9]{4}年[0-9]{2}月[0-9]{2}日[0-9]{2}时[0-9]{2}分[0-9]{2}秒$").unwrap()
+        });
+
         if !RE.is_match(input) {
             return None;
         }
@@ -852,9 +839,9 @@ where
     // chinese yyyy mm dd
     // - 2014年04月08日
     fn chinese_ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[0-9]{4}年[0-9]{2}月[0-9]{2}日$").unwrap();
-        }
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[0-9]{4}年[0-9]{2}月[0-9]{2}日$").unwrap());
+
         if !RE.is_match(input) {
             return None;
         }
@@ -1624,7 +1611,6 @@ mod tests {
         }
         assert!(parse.hyphen_mdy_hms("not-date-time").is_none());
     }
-
 
     #[test]
     fn slash_ymd_hms() {

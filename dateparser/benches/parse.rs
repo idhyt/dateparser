@@ -1,9 +1,9 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use dateparser::parse;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
-lazy_static! {
-    static ref SELECTED: Vec<&'static str> = vec![
+static SELECTED: Lazy<Vec<&'static str>> = Lazy::new(|| {
+    vec![
         "1511648546",                    // unix_timestamp
         "2017-11-25T22:34:50Z",          // rfc3339
         "Wed, 02 Jun 2021 06:31:39 GMT", // rfc2822
@@ -29,8 +29,8 @@ lazy_static! {
         "171113 14:14:20",               // mysql_log_timestamp
         "2014年04月08日11时25分18秒",    // chinese_ymd_hms
         "2014年04月08日",                // chinese_ymd
-    ];
-}
+    ]
+});
 
 fn bench_parse_all(c: &mut Criterion) {
     c.bench_with_input(
