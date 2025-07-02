@@ -33,7 +33,7 @@ where
             .or_else(|| self.month_dmy_family(input))
             .or_else(|| self.slash_mdy_family(input))
             .or_else(|| self.hyphen_mdy_family(input))
-            .or_else(|| self.slash_ymd_family(input))
+            .or_else(|| self.variant_ymd_family(input))
             .or_else(|| self.dot_mdy_or_ymd(input))
             .or_else(|| self.mysql_log_timestamp(input))
             .or_else(|| self.chinese_ymd_family(input))
@@ -126,14 +126,16 @@ where
             .or_else(|| self.hyphen_mdy(input))
     }
 
-    fn slash_ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
-        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}/[0-9]{1,2}").unwrap());
+    /// ISO 8601 variant using slash/colons as separators
+    fn variant_ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}[/:]{1}[0-9]{1,2}").unwrap());
 
         let Some(input) = self.matched(input, &RE) else {
             return None;
         };
-
-        self.slash_ymd_hms(input).or_else(|| self.slash_ymd(input))
+        dbg!("variant_ymd_family: {}", input);
+        self.variant_ymd_hms(input)
+            .or_else(|| self.variant_ymd(input))
     }
 
     fn chinese_ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
@@ -668,17 +670,17 @@ where
             .map(Ok)
     }
 
-    // yyyy/mm/dd hh:mm:ss
-    // - 2014/4/8 22:05
-    // - 2014/04/08 22:05
-    // - 2014/04/2 03:00:51
+    // yyyy/mm/dd hh:mm:ss or yyyy:mm:dd hh:mm:ss
+    // - 2014/4/8 22:05 or 2014:4:8 22:05
+    // - 2014/04/08 22:05 or 2014:04:08 22:05
+    // - 2014/04/2 03:00:51 or 2014:04:2 03:00:51
     // - 2014/4/02 03:00:51
     // - 2012/03/19 10:11:59
     // - 2012/03/19 10:11:59.3186369
-    fn slash_ymd_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
+    fn variant_ymd_hms(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| {
             Regex::new(
-                r"^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?\s*(am|pm|AM|PM)?$"
+                r"^[0-9]{4}[/:]{1}[0-9]{1,2}[/:]{1}[0-9]{1,2}[\sT]+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?\s*(am|pm|AM|PM)?\s*([A-Za-z]{3,4})?$"
             )
             .unwrap()
         });
@@ -687,23 +689,37 @@ where
             return None;
         };
 
-        self.tz
-            .datetime_from_str(input, "%Y/%m/%d %H:%M:%S")
-            .or_else(|_| self.tz.datetime_from_str(input, "%Y/%m/%d %H:%M"))
-            .or_else(|_| self.tz.datetime_from_str(input, "%Y/%m/%d %H:%M:%S%.f"))
-            .or_else(|_| self.tz.datetime_from_str(input, "%Y/%m/%d %I:%M:%S %P"))
-            .or_else(|_| self.tz.datetime_from_str(input, "%Y/%m/%d %I:%M %P"))
-            .ok()
-            .map(|at_tz| at_tz.with_timezone(&Utc))
-            .map(Ok)
+        let intput = if input.chars().nth(4) == Some('/') {
+            input.replacen("/", "-", 2)
+        } else {
+            input.replacen(":", "-", 2)
+        };
+        let input = intput.replacen("AM", " am", 1).replacen("PM", " pm", 1);
+
+        for fmt in vec![
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M",
+            "%Y-%m-%d %H:%M:%S%.f",
+            "%Y-%m-%d %I:%M:%S %P",
+            "%Y-%m-%d %I:%M %P",
+            "%Y-%m-%d %H:%M:%S %P",    // 2017:06:17 18:01:24 pm
+            "%Y-%m-%d %H:%M:%S%.f %Z", // 2019:05:23 06:10:21.000 UTC
+            "%Y-%m-%dT%H:%M:%S %P",    // 2017:06:17T18:01:24 pm
+            "%Y-%m-%dT%H:%M:%S%.f %Z", // 2019:05:23T06:10:21.000 UTC
+        ] {
+            if let Ok(dt) = self.tz.datetime_from_str(&input, fmt) {
+                return Some(Ok(dt.with_timezone(&Utc)));
+            }
+        }
+        self.rfc3339(&input)
     }
 
-    // yyyy/mm/dd
-    // - 2014/3/31
-    // - 2014/03/31
-    fn slash_ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
+    // yyyy/mm/dd or yyyy:mm:dd
+    // - 2014/3/31 or 2014:3:31
+    // - 2014/03/31 or 2014:03:31
+    fn variant_ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}$").unwrap());
+            Lazy::new(|| Regex::new(r"^[0-9]{4}[/:]{1}[0-9]{1,2}[/:]{1}[0-9]{1,2}$").unwrap());
 
         let Some(input) = self.matched(input, &RE) else {
             return None;
@@ -715,7 +731,13 @@ where
             None => Utc::now().with_timezone(self.tz).time(),
         };
 
-        NaiveDate::parse_from_str(input, "%Y/%m/%d")
+        let fmt = if input.chars().nth(4) == Some('/') {
+            "%Y/%m/%d"
+        } else {
+            "%Y:%m:%d"
+        };
+
+        NaiveDate::parse_from_str(input, fmt)
             .ok()
             .map(|parsed| parsed.and_time(time))
             .and_then(|datetime| self.tz.from_local_datetime(&datetime).single())
@@ -1658,13 +1680,13 @@ mod tests {
 
         for &(input, want) in test_cases.iter() {
             assert_eq!(
-                parse.slash_ymd_hms(input).unwrap().unwrap(),
+                parse.variant_ymd_hms(input).unwrap().unwrap(),
                 want,
                 "slash_ymd_hms/{}",
                 input
             )
         }
-        assert!(parse.slash_ymd_hms("not-date-time").is_none());
+        assert!(parse.variant_ymd_hms("not-date-time").is_none());
     }
 
     #[test]
@@ -1685,7 +1707,7 @@ mod tests {
         for &(input, want) in test_cases.iter() {
             assert_eq!(
                 parse
-                    .slash_ymd(input)
+                    .variant_ymd(input)
                     .unwrap()
                     .unwrap()
                     .trunc_subsecs(0)
@@ -1696,7 +1718,86 @@ mod tests {
                 input
             )
         }
-        assert!(parse.slash_ymd("not-date-time").is_none());
+        assert!(parse.variant_ymd("not-date-time").is_none());
+    }
+
+    #[test]
+    fn colons_ymd_hms() {
+        let parse = Parse::new(&Utc, None);
+
+        let test_cases = [
+            ("2014:4:8 22:05", Utc.ymd(2014, 4, 8).and_hms(22, 5, 0)),
+            ("2014:04:08 22:05", Utc.ymd(2014, 4, 8).and_hms(22, 5, 0)),
+            ("2014:04:2 03:00:51", Utc.ymd(2014, 4, 2).and_hms(3, 0, 51)),
+            ("2014:4:02 03:00:51", Utc.ymd(2014, 4, 2).and_hms(3, 0, 51)),
+            (
+                "2012:03:19 10:11:59",
+                Utc.ymd(2012, 3, 19).and_hms(10, 11, 59),
+            ),
+            (
+                "2012:03:19 10:11:59.3186369",
+                Utc.ymd(2012, 3, 19).and_hms_nano(10, 11, 59, 318636900),
+            ),
+            (
+                "2025:07:02 15:15:10pm",
+                Utc.ymd(2025, 7, 2).and_hms(15, 15, 10),
+            ),
+            (
+                "2025:07:02 15:15:10PM",
+                Utc.ymd(2025, 7, 2).and_hms(15, 15, 10),
+            ),
+            (
+                "2025:07:02 15:15:10.12345 UTC",
+                Utc.ymd(2025, 7, 2).and_hms_nano(15, 15, 10, 123450000),
+            ),
+            (
+                "2017:08:16T12:18:36",
+                Utc.ymd(2017, 8, 16).and_hms(12, 18, 36),
+            ),
+        ];
+
+        for &(input, want) in test_cases.iter() {
+            // dbg!("test: {}", input);
+            assert_eq!(
+                parse.variant_ymd_hms(input).unwrap().unwrap(),
+                want,
+                "slash_ymd_hms/{}",
+                input
+            )
+        }
+        assert!(parse.variant_ymd_hms("not-date-time").is_none());
+    }
+
+    #[test]
+    fn colons_slash_ymd() {
+        let parse = Parse::new(&Utc, Some(Utc::now().time()));
+
+        let test_cases = [
+            (
+                "2014:3:31",
+                Utc.ymd(2014, 3, 31).and_time(Utc::now().time()),
+            ),
+            (
+                "2014:03:31",
+                Utc.ymd(2014, 3, 31).and_time(Utc::now().time()),
+            ),
+        ];
+
+        for &(input, want) in test_cases.iter() {
+            assert_eq!(
+                parse
+                    .variant_ymd(input)
+                    .unwrap()
+                    .unwrap()
+                    .trunc_subsecs(0)
+                    .with_second(0)
+                    .unwrap(),
+                want.unwrap().trunc_subsecs(0).with_second(0).unwrap(),
+                "slash_ymd/{}",
+                input
+            )
+        }
+        assert!(parse.variant_ymd("not-date-time").is_none());
     }
 
     #[test]
