@@ -40,12 +40,29 @@ where
             .unwrap_or_else(|| Err(anyhow!("{} did not match any formats.", input)))
     }
 
+    /// TODO: support parse date from the human readable string.
+    fn matched<'a>(&self, input: &'a str, regex: &Regex) -> Option<&'a str> {
+        if regex.is_match(input) {
+            Some(input)
+        } else {
+            None
+        }
+        // TODO: catpure the match datetime from string
+        // if let Some(c) = regex.captures(input) {
+        //     if let Some(m) = c.get(0) {
+        //         return Some(m.as_str());
+        //     }
+        // }
+        // None
+    }
+
     fn ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}-[0-9]{2}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         self.rfc3339(input)
             .or_else(|| self.postgres_timestamp(input))
             .or_else(|| self.ymd_hms(input))
@@ -57,9 +74,10 @@ where
     fn hms_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{1,2}:[0-9]{2}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         self.hms(input).or_else(|| self.hms_z(input))
     }
 
@@ -67,9 +85,10 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[a-zA-Z]{3,9}\.?\s+[0-9]{1,2}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         self.month_md_hms(input)
             .or_else(|| self.month_mdy_hms(input))
             .or_else(|| self.month_mdy_hms_z(input))
@@ -79,27 +98,30 @@ where
     fn month_dmy_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{1,2}\s+[a-zA-Z]{3,9}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         self.month_dmy_hms(input).or_else(|| self.month_dmy(input))
     }
 
     fn slash_mdy_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{1,2}/[0-9]{1,2}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         self.slash_mdy_hms(input).or_else(|| self.slash_mdy(input))
     }
 
     fn hyphen_mdy_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{1,2}-[0-9]{1,2}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         self.hyphen_mdy_hms(input)
             .or_else(|| self.hyphen_mdy(input))
     }
@@ -107,18 +129,20 @@ where
     fn slash_ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}/[0-9]{1,2}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         self.slash_ymd_hms(input).or_else(|| self.slash_ymd(input))
     }
 
     fn chinese_ymd_family(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}年[0-9]{2}月").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         self.chinese_ymd_hms(input)
             .or_else(|| self.chinese_ymd(input))
     }
@@ -130,9 +154,9 @@ where
     fn unix_timestamp(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{10,19}$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         input
             .parse::<i64>()
@@ -180,9 +204,9 @@ where
             Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?[+-:0-9]{3,6}$").unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         DateTime::parse_from_str(input, "%Y-%m-%d %H:%M:%S%#z")
             .or_else(|_| DateTime::parse_from_str(input, "%Y-%m-%d %H:%M:%S%.f%#z"))
@@ -205,9 +229,9 @@ where
             Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?\s*(am|pm|AM|PM)?$").unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         self.tz
             .datetime_from_str(input, "%Y-%m-%d %H:%M:%S")
@@ -234,9 +258,10 @@ where
             Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]{1,9})?(?P<tz>\s*[+-:a-zA-Z0-9]{3,6})$").unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
+
         if let Some(caps) = RE.captures(input) {
             if let Some(matched_tz) = caps.name("tz") {
                 let parse_from_str = NaiveDateTime::parse_from_str;
@@ -260,9 +285,9 @@ where
     fn ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
@@ -287,9 +312,9 @@ where
             Regex::new(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}(?P<tz>\s*[+-:a-zA-Z0-9]{3,6})$").unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         if let Some(caps) = RE.captures(input) {
             if let Some(matched_tz) = caps.name("tz") {
@@ -323,9 +348,9 @@ where
             Regex::new(r"^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?$").unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         let now = Utc::now().with_timezone(self.tz);
         NaiveTime::parse_from_str(input, "%H:%M:%S")
@@ -351,9 +376,9 @@ where
             .unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         if let Some(caps) = RE.captures(input) {
             if let Some(matched_tz) = caps.name("tz") {
@@ -383,9 +408,9 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[0-9]{4}-[a-zA-Z]{3,9}-[0-9]{2}$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
@@ -410,9 +435,9 @@ where
             Regex::new(r"^[a-zA-Z]{3}\s+[0-9]{1,2}\s*(at)?\s+[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\s*(am|pm|AM|PM)?$").unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         let now = Utc::now().with_timezone(self.tz);
         let with_year = format!("{} {}", now.year(), input);
@@ -435,9 +460,9 @@ where
         ).unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         let dt = input.replace(", ", " ").replace(". ", " ");
         self.tz
@@ -462,9 +487,9 @@ where
          ).unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         if let Some(caps) = RE.captures(input) {
             if let Some(matched_tz) = caps.name("tz") {
@@ -499,9 +524,9 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[a-zA-Z]{3,9}\.?\s+[0-9]{1,2},\s+[0-9]{2,4}$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
@@ -530,9 +555,9 @@ where
         ).unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         let dt = input.replace(", ", " ");
         self.tz
@@ -555,9 +580,9 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[0-9]{1,2}\s+[a-zA-Z]{3,9}\s+[0-9]{2,4}$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
@@ -595,9 +620,9 @@ where
             .unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         self.tz
             .datetime_from_str(input, "%m/%d/%y %H:%M:%S")
@@ -624,9 +649,9 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
@@ -658,9 +683,9 @@ where
             .unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         self.tz
             .datetime_from_str(input, "%Y/%m/%d %H:%M:%S")
@@ -680,9 +705,9 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
@@ -707,9 +732,9 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4}$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
@@ -747,9 +772,9 @@ where
             .unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         self.tz
             .datetime_from_str(input, "%m-%d-%y %H:%M:%S")
@@ -776,11 +801,11 @@ where
     // - 2014.03
     fn dot_mdy_or_ymd(&self, input: &str) -> Option<Result<DateTime<Utc>>> {
         static RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"[0-9]{1,4}.[0-9]{1,4}[0-9]{1,4}").unwrap());
+            Lazy::new(|| Regex::new(r"[0-9]{1,4}.[0-9]{1,4}.[0-9]{1,4}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
@@ -807,9 +832,9 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"[0-9]{6}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         self.tz
             .datetime_from_str(input, "%y%m%d %H:%M:%S")
@@ -825,9 +850,9 @@ where
             Regex::new(r"^[0-9]{4}年[0-9]{2}月[0-9]{2}日[0-9]{2}时[0-9]{2}分[0-9]{2}秒$").unwrap()
         });
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         self.tz
             .datetime_from_str(input, "%Y年%m月%d日%H时%M分%S秒")
@@ -842,9 +867,9 @@ where
         static RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[0-9]{4}年[0-9]{2}月[0-9]{2}日$").unwrap());
 
-        if !RE.is_match(input) {
+        let Some(input) = self.matched(input, &RE) else {
             return None;
-        }
+        };
 
         // set time to use
         let time = match self.default_time {
